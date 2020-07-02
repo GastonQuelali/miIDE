@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=7,IE=9" />
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no" />
+    <title>Dirección de Administración Geografica y Catastro</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.20/dijit/themes/claro/claro.css">
+    <link rel="stylesheet" type="text/css" href="https://js.arcgis.com/3.20/esri/css/esri.css">
+    <!--<link rel="stylesheet" type="text/css" href="http://192.168.105.218/2.10/src/agsjs/css/agsjs.css" />-->
+    <link rel="stylesheet" type="text/css" href="http://186.121.246.218/2.10/src/agsjs/css/agsjs.css" />
+
+    <style>
+        html, body {
+            height: 98%;
+            width: 100%;
+            margin: 0;
+            padding: 0px;
+            font-family: helvetica, arial, sans-serif;
+            font-size: 90%;
+        }
+
+        #mapDiv {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #search {
+            display: block;
+            position: absolute;
+            z-index: 2;
+            top: 35px;
+            right: 35px;
+        }
+
+        #leftPane {
+            width: 280px;
+            overflow: auto;
+        }
+
+        #HomeButton {
+            position: absolute;
+            top: 95px;
+            left: 20px;
+            z-index: 50;
+        }
+
+        #titlePane {
+            width: 280px;
+        }
+
+        .agsjsTOCOutOfScale { /*  display: none;*/
+        }
+
+        .dj_ie .infowindow .window .top .right .user .content {
+            position: relative;
+        }
+
+        .dj_ie .simpleInfoWindow .content {
+            position: relative;
+        }
+
+        .esriAttributeInspector .atiLayerName {
+            display: none;
+        }
+
+        .esriAttributeInspector .atiButtons .atiDeleteButton {
+            display: none;
+        }
+
+        .saveButton {
+            padding-left: 45px;
+            margin: 0px;
+            width: 16px;
+            height: 16px;
+        }
+
+        .agsjsTOCOutOfScale { /*  display: none;*/
+        }
+    </style>
+    <script type="text/javascript">
+                    	// helpful for understanding dojoConfig.packages vs. dojoConfig.paths:
+                  // http://www.sitepen.com/blog/2013/06/20/dojo-faq-what-is-the-difference-packages-vs-paths-vs-aliases/
+                  var dojoConfig = {
+                    paths: {
+                      //if you want to host on your own server, download and put in folders then use path like:
+                            //agsjs: location.pathname.replace(/\/[^/]+$/, '') + '/../2.10/src/agsjs'
+                            agsjs: 'http://186.121.246.218/2.10/src/agsjs'
+                        }
+                  };
+    </script>
+    <script src="https://js.arcgis.com/3.22/"></script>
+    <script>
+        var ipAGS = "186.121.246.219"; //192.168.105.219 ip interno
+        var port = "6080";
+        var urlBase = "http://" + ipAGS + ":" + port;
+        var map, updateFeature;
+
+  require([
+    "esri/map",
+    "esri/layers/ArcGISDynamicMapServiceLayer",
+    "esri/layers/ArcGISTiledMapServiceLayer",
+    "esri/layers/FeatureLayer",
+    "esri/dijit/AttributeInspector",
+    "esri/symbols/SimpleLineSymbol",
+    "esri/symbols/SimpleFillSymbol",
+    "esri/symbols/SimpleMarkerSymbol",
+    "esri/Color",
+    "esri/renderers/UniqueValueRenderer",
+    "esri/config",
+    "esri/tasks/query",
+    "dojo/parser",
+    "dojo/dom-construct",
+    "dijit/form/Button",
+    "agsjs/dijit/TOC",
+	   "dijit/layout/BorderContainer",
+	   "dijit/layout/ContentPane",
+    "dojo/domReady!"
+  ], function(
+    	Map, ArcGISDynamicMapServiceLayer, ArcGISTiledMapServiceLayer, FeatureLayer, AttributeInspector, SimpleLineSymbol, SimpleFillSymbol, SimpleMarkerSymbol, Color, UniqueValueRenderer, esriConfig, Query, parser, domConstruct, Button, TOC)
+  	{
+  	  parser.parse();
+
+      esriConfig.defaults.io.proxyUrl = "/proxy/";
+
+    	map = new Map("mapDiv", {logo: false,  slider:true, nav:true, center: [-66.18200316712957, -17.3761938563016]});
+  		map.on("layers-add-result", initSelectToolbar);
+      //map.addLayers([imagen15, usosuelo, vias, manzanas, predios, limites]);
+      //map.addLayers([imagen07, imagen15, usosuelo, vias, predios, manzanas, sectoriales, limites]);
+  	    var imagen15 =  new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2015/MapServer", {visible: false});
+      map.addLayer(imagen15);
+      var usosuelo = new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/bienes/usoSuelodbBienes/MapServer", { visible: true });
+      map.addLayer(usosuelo);
+      var vias =    new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/planificacion/vias/MapServer", {visible: true});
+      map.addLayer(vias);
+      var predios =  new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/catastro/predioscbba/MapServer", {visible: true});
+      map.addLayer(predios);
+      var manzanas =  new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/catastro/manzanasdb/MapServer", {visible: true});
+      map.addLayer(manzanas);
+      var limites =   new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/planificacion/limites/MapServer", {visible: true});
+      map.addLayer(limites);
+
+      var bienesMSL = new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/bienes/BienesPredios/MapServer");
+	   	bienesMSL.setDisableClientCaching(true);
+	 	  map.addLayer(bienesMSL);
+
+      /*predios.setInfoTemplates({
+                  0: { infoTemplate: _predioInfoTemplate},
+      });*/
+      /*manzanas.setInfoTemplates({
+                  0: { infoTemplate: _manzanaInfoTemplate},
+                });*/
+      /*vias.setInfoTemplates({
+                  0: { infoTemplate: _viaInfoTemplate},
+                });*/
+
+	    var bienesFL = new FeatureLayer(urlBase + "/arcgis/rest/services/bienes/BienesPredios/FeatureServer/2", {
+	    	mode : FeatureLayer.MODE_SNAPSHOT,	//MODE_ONDEMAND, MODE_SELECTION
+    		outFields: ["*"]
+    	});
+
+	    var selectionSymbol = new SimpleFillSymbol(
+            SimpleFillSymbol.STYLE_NULL,
+            new SimpleLineSymbol(
+                "solid",
+                new Color("yellow"),
+                2
+            ),
+            null
+        );
+        bienesFL.setSelectionSymbol(selectionSymbol);
+
+        bienesFL.on("edits-complete", function() {
+          bienesMSL.refresh();
+        });
+
+        map.addLayers([bienesFL]);
+
+	    function initSelectToolbar(evt)
+	    {
+	    	try {
+
+            toc = new TOC(
+                      {
+                        map: map,
+                        layerInfos:
+                        [   {layer: bienesMSL, title: "Predios Bienes", collapsed: true},
+                            {layer: predios, title: "Predios", collapsed: true},
+                            {layer: manzanas, title: "Manzanas", collapsed: true},
+                            {layer: vias, title: "Vias", collapsed: true},
+                            {layer: limites, title: "Limites", collapsed: true},
+                            {layer: usosuelo, title: "Uso de Suelo", collapsed: true, slider: true},
+                            {layer: imagen15, title: "Imagen 2015", collapsed: true}]
+                      }, 'tocDiv');
+
+            toc.startup();
+
+            var bienesFL = evt.layers[0].layer;
+            var selectQuery = new Query();
+
+            map.on("click", function(evt)
+      		  {
+        		  selectQuery.geometry = evt.mapPoint;
+        		  bienesFL.selectFeatures(selectQuery, FeatureLayer.SELECTION_NEW, function(features)
+        		  {
+          			if (features.length > 0)
+          			{
+            			updateFeature = features[0];
+            			map.infoWindow.setTitle(features[0].getLayer().name);
+            			map.infoWindow.show(evt.screenPoint, map.getInfoWindowAnchor(evt.screenPoint));
+          			}
+          			else
+          			{
+            			map.infoWindow.hide();
+          			}
+        		  });
+      		  });
+
+            map.infoWindow.on("hide", function() {bienesFL.clearSelection();});
+
+      		  var layerInfos = [{
+          		'featureLayer': bienesFL,
+          		'showAttachments': false,
+                'showDeleteButton':false,
+          		'isEditable': true,
+          		'fieldInfos': [
+                { 'fieldName': 'RBM', 'isEditable': true, 'label': 'RBM:' },
+                {'fieldName': 'Bienes',       'isEditable': true,     'label': 'Bienes:'},
+                {'fieldName': 'Tipo_Uso',     'isEditable': true,     'label': 'Tipo Uso:', 'stringFieldOption': esri.dijit.AttributeInspector.STRING_FIELD_OPTION_TEXTAREA},
+                {'fieldName': 'Legal',        'isEditable': true,     'label': 'Legal:', 'stringFieldOption': esri.dijit.AttributeInspector.STRING_FIELD_OPTION_TEXTAREA},
+                {'fieldName': 'CodCat',       'isEditable': false,    'label': 'Código Catastral:'},
+                {'fieldName': 'Nro_manzan',   'isEditable': false,    'label': 'Nro. Manzana:'},
+           		{'fieldName': 'Nro_predio',   'isEditable': false,    'label': 'Nro. Predio:'},
+           		//{'fieldName': 'No_Puerta',    'isEditable': false,    'label': 'No. Puerta:'},
+                //{'fieldName': 'NoInmueble',   'isEditable': false,    'label': 'No. Inmueble:'},
+                //{'fieldName': 'TipoSuelo',    'isEditable': false,    'label': 'Tipo Suelo:'},
+                {'fieldName': 'Sbdis_Nro',    'isEditable': false,    'label': 'Nro. Subdistrito:'},
+                {'fieldName': 'Sbdistrito',   'isEditable': false,    'label': 'Subdistrito:'},
+           		{'fieldName': 'distrito',     'isEditable': false,    'label': 'Distrito:'},
+           		//{'fieldName': 'comuna',       'isEditable': false,    'label': 'Comuna:'},
+                //{'fieldName': 'Shape_Leng',   'isEditable': false,    'label': 'Shape_Leng:'},
+                //{'fieldName': 'ZTributari',   'isEditable': false,    'label': 'Zona Trib.:'}//,
+                //{'fieldName': 'Shape',        'isEditable': false,    'label': 'Shape:'},
+                //{'fieldName': 'Shape.STArea()', 'isEditable': false,  'label': 'Shape.STArea:'},
+                {'fieldName': 'area_predio', 'isEditable': false,'label': 'Superficie:'}]
+        	}];
+
+      		//Initialize Attribute Inspector
+      		var attInspector = new AttributeInspector({layerInfos: layerInfos}, domConstruct.create("div"));
+
+      		//add a save button next to the delete button
+      		var saveButton = new Button({ label: "Guardar", "class": "saveButton"},domConstruct.create("div"));
+      		domConstruct.place(saveButton.domNode, attInspector.deleteBtn.domNode, "after");
+
+      		saveButton.on("click", function() {updateFeature.getLayer().applyEdits(null, [updateFeature], null);});
+
+      		attInspector.on("attribute-change", function(evt) {updateFeature.attributes[evt.fieldName] = evt.fieldValue;});
+      		attInspector.on("next", function(evt) {updateFeature = evt.feature; console.log("Next " + updateFeature.attributes.OBJECTID);});
+		      attInspector.on("delete", function(evt) {
+        		evt.feature.getLayer().applyEdits(null, null, [evt.feature]);
+        		map.infoWindow.hide();
+      		});
+	         map.infoWindow.setContent(attInspector.domNode);
+    	     map.infoWindow.resize(350, 350);
+			} catch (e) { alert(e); }
+    	}
+  });
+    </script>
+</head>
+<body class="claro">
+    <div id="search"></div>
+    <div id="content" data-dojo-type="dijit/layout/BorderContainer" design="headline" gutters="true" style="width: 100%; height: 100%; margin: 0;">
+        <div data-dojo-type="dijit/layout/ContentPane" id="leftPane" region="left" splitter="true">
+            <div id="tocDiv"></div>
+        </div>
+        <div id="mapDiv" data-dojo-type="dijit/layout/ContentPane" region="center">
+            <div id="HomeButton"></div>
+        </div>
+    </div>
+</body>
+</html>

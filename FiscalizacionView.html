@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=7,IE=9" />
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no" />
+    <title>Gobierno Autónomo Municipal de Cochabamba</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.31/dijit/themes/claro/claro.css">
+    <link rel="stylesheet" type="text/css" href="https://js.arcgis.com/3.31/esri/css/esri.css">
+    <!--<link rel="stylesheet" type="text/css" href="http://192.168.105.218/2.10/src/agsjs/css/agsjs.css" />-->
+    <link rel="stylesheet" type="text/css" href="http://186.121.246.218/2.10/src/agsjs/css/agsjs.css" />
+
+    <style>
+        html, body {
+            height: 98%;
+            width: 100%;
+            margin: 0;
+            padding: 0px;
+            font-family: helvetica, arial, sans-serif;
+            font-size: 90%;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #search {
+            display: block;
+            position: absolute;
+            z-index: 2;
+            top: 35px;
+            right: 35px;
+        }
+
+        #leftPane {
+            width: 280px;
+            overflow: auto;
+        }
+
+        #HomeButton {
+            position: absolute;
+            top: 95px;
+            left: 20px;
+            z-index: 50;
+        }
+
+        #LocateButton {
+            position: absolute;
+            top: 95px;
+            left: 20px;
+            z-index: 50;
+        }
+
+        #titlePane {
+            width: 280px;
+        }
+
+        #widgetContainer {
+            position: absolute;
+            top: 25px;
+            left: 380px;
+            padding: 10px;
+            background: rgba(102,102,102,0.80);
+            border-radius: 5px;
+            -webkit-border-radius: 5px;
+            z-index: 2;
+        }
+
+        .agsjsTOCOutOfScale { /*display: none;*/
+        }
+    </style>
+    <script type="text/javascript">
+                    	// helpful for understanding dojoConfig.packages vs. dojoConfig.paths:
+                  // http://www.sitepen.com/blog/2013/06/20/dojo-faq-what-is-the-difference-packages-vs-paths-vs-aliases/
+                  var dojoConfig = {
+                    paths: {
+                      //if you want to host on your own server, download and put in folders then use path like:
+                            //agsjs: location.pathname.replace(/\/[^/]+$/, '') + '/../2.10/src/agsjs'
+                            agsjs: 'http://186.121.246.218/2.10/src/agsjs'
+                        }
+                  };
+    </script>
+    <script src="https://js.arcgis.com/3.31/"></script>
+    <script type="text/javascript">
+        var ipAGS = "186.121.246.219"; //192.168.105.219 ip interno
+        var port = "6080";
+        var urlBase = "http://" + ipAGS + ":" + port;
+        var map, toc, predios, manzanas, vias, usosuelo, limites, restitucion2015;
+        var imagen64, imagen94, imagen00, imagen04, imagen07, imagen08, imagen09, imagen10, imagen11, imagen12, imagen13, imagen14, imagen15, imagen16, imagen17, imagen18, imagen19;
+        var mds, pendiente, centros, fiscalizacion, fiscalizacion1;
+        var prediosRegularizacion, recaudaciones, sectoriales;
+
+        var res = "Elevacion: &nbsp; <b>${ELEVACION}</b></br>" +
+              "Superficie: &nbsp; <b>${SUPERFICIE}</b></br>" +
+              "Shape_Leng: &nbsp; <b>${Shape_Leng}</b></br>" +
+              "Shape_Area: &nbsp; <b>${Shape_Area}</b></br>";
+         var predio =   "Código Catastral: &nbsp; <b>${CodCat}</b></br>" +
+              "Nombre Subdistrito: &nbsp; <b>${Sbdistrito}</b></br>" +
+              "Subdistrito: &nbsp; <b>${Sbdist_Nro}</b></br>" +
+              "Nro. Manzana: &nbsp; <b>${Nro_manzan}</b></br>" +
+              "Nro. Predio: &nbsp; <b>${Nro_predio}</b></br>" +
+              "Nro. Inmueble: &nbsp; <b>${NoInmueble}</b></br>" +
+              "Comuna: &nbsp; <b>${comuna}</b></br>" +
+              "Zona Tributaria: &nbsp; <b>${ZTributari}</b></br>" +
+              "Area: &nbsp; <b>${SHAPE.STArea()}</b></br>" +
+              "Perimetro: &nbsp; <b>${SHAPE.STLength()}</b></br>";
+         var manzana =  "Nro. Manzana: &nbsp; <b>${Manzanas}</b></br>" +
+              "Distrito: &nbsp; <b>${Distrito}</b></br>" +
+              "Subdistrito: &nbsp; <b>${SubDistrit}</b></br>" +
+              "Nombre Subdistrito: &nbsp; <b>${Nombre_SD}</b></br>" +
+              "Comuna: &nbsp; <b>${Comuna}</b></br>" +
+              "Area: &nbsp; <b>${Shape.STArea()}</b></br>" +
+              "Perimetro: &nbsp; <b>${Shape.STLength()}</b></br>";
+      var via =   "Tipo: &nbsp; <b>${Tipo}</b></br>" +
+            "Nombre: &nbsp; <b>${Nombre}</b></br>" +
+            "Perimetro: &nbsp; <b>${Shape_Length}</b></br>";
+      var ph =  "Código Catastral: &nbsp;         <b>${CodCat}</b></br>" +
+                    "Edificio: &nbsp;                 <b>${Edificio}</b></br>" +
+                    "Fecha de Resolución: &nbsp;      <b>${F_Resoluci}</b></br>" +
+                    "Fecha de Aprobación: &nbsp;      <b>${F_Paprob}</b></br>" +
+                    "Año de Construccion: &nbsp;      <b>${A_Const}</b></br>" +
+                    "Fecha de Emisión: &nbsp;         <b>${F_Emision}</b></br>" +
+                    "Sup. Construccion: &nbsp;        <b>${Sup_Cons}</b></br>" +
+                    "Sup. Ideal: &nbsp;               <b>${Sup_Ideal}</b></br>" +
+                    "Bloque: &nbsp;                   <b>${Bloque}</b></br>" +
+                    "Pisos: &nbsp;                    <b>${Pisos}</b></br>" +
+                    "Nro. Inmueble: &nbsp;            <b>${NoInmueble}</b></br>" +
+                    "Tipo de Suelo: &nbsp;            <b>${TipoSuelo}</b></br>" +
+                    "Zona Tributaria: &nbsp;          <b>${ZTributari}</b></br>";
+      require([
+        "dojo/dom-construct",
+        "dojo/_base/connect",
+        "dojo/_base/array",
+        "dojo/dom",
+        "dojo/keys",//
+        "dojo/parser",
+        "dojo/on",
+        "esri/config",
+        "esri/sniff",//
+        "esri/map",
+        "esri/InfoTemplate",
+        "esri/geometry/Extent",
+        "esri/geometry/webMercatorUtils",
+        "esri/layers/FeatureLayer",
+        "esri/layers/ArcGISTiledMapServiceLayer",
+        "esri/layers/ArcGISDynamicMapServiceLayer",
+        "esri/symbols/SimpleFillSymbol",
+        "esri/symbols/SimpleLineSymbol",
+        "esri/Color",
+        "esri/dijit/HomeButton",
+        //"esri/dijit/LocateButton",
+        "esri/dijit/Measurement",//
+        //"esri/dijit/Popup",
+        //"esri/dijit/PopupTemplate",
+        "esri/dijit/Scalebar",
+        "esri/dijit/Search",
+        "esri/renderers/ClassBreaksRenderer",
+        "esri/renderers/SimpleRenderer",//
+        "esri/SnappingManager",//
+        "esri/tasks/GeometryService",//
+        "esri/units",//
+        "agsjs/dijit/TOC",
+        "dijit/layout/BorderContainer",
+        "dijit/layout/ContentPane",
+        "dijit/TitlePane",
+        "dijit/form/CheckBox",
+        "dojo/fx",
+        "dojo/domReady!"],
+
+      function(domConstruct, connect, arrayUtils, dom, keys, parser, on, esriConfig, has, Map, InfoTemplate, Extent, webMercatorUtils, FeatureLayer, ArcGISTiledMapServiceLayer, ArcGISDynamicMapServiceLayer, SimpleFillSymbol, SimpleLineSymbol, Color, HomeButton/*, LocateButton*/, Measurement, /*Popup, PopupTemplate,*/ Scalebar, Search, ClassBreaksRenderer, SimpleRenderer, SnappingManager, GeometryService, Units, TOC)
+      {
+
+        parser.parse();
+
+            esriConfig.defaults.io.proxyUrl = "/proxy/";
+            esriConfig.defaults.io.alwaysUseProxy = false;
+
+            esriConfig.defaults.geometryService = new GeometryService(urlBase + "/arcgis/rest/services/Utilities/Geometry/GeometryServer");
+
+            /*var popup = new Popup({
+                fillSymbol: new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID,
+                      new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID,
+                        new Color([2, 253, 253]), 2), new Color([255, 255, 0, 0.0]))
+            }, domConstruct.create("div"));*/
+
+                map = new Map("map", {/*infoWindow: popup,*/ logo: false,  slider:true, nav:true, center: [-66.18200316712957, -17.3761938563016]});
+                map.setInfoWindowOnClick(true);
+
+        var home = new HomeButton({map: map}, "HomeButton");
+            home.startup();
+
+            //var geoLocate = new LocateButton({map: map}, "LocateButton");
+            //geoLocate.startup();
+
+            var scalebar = new Scalebar({
+                map: map,
+                scalebarStyle: "ruler",
+                attachTo: "bottom-left",
+                scalebarUnit: "metric"
+            });
+
+        var _predioResInfoTemplate = new InfoTemplate();
+            _predioResInfoTemplate.setTitle("<b>Rest. Predio Inf.</b>");
+            _predioResInfoTemplate.setContent("<div>" + res + "</div>");
+
+            var _constResInfoTemplate = new InfoTemplate();
+            _constResInfoTemplate.setTitle("<b>Rest. Const Inf.</b>");
+            _constResInfoTemplate.setContent("<div>" + res + "</div>");
+
+        var _predioInfoTemplate = new InfoTemplate();
+            _predioInfoTemplate.setTitle("<b>Predio Inf.</b>");
+            _predioInfoTemplate.setContent("<div>" + predio + "</div>");
+
+            var _manzanaInfoTemplate = new InfoTemplate();
+            _manzanaInfoTemplate.setTitle("<b>Manzana Inf.</b>");
+            _manzanaInfoTemplate.setContent("<div>" + manzana + "</div>");
+
+            var _viaInfoTemplate = new InfoTemplate();
+            _viaInfoTemplate.setTitle("<b>Via Inf.</b>");
+            _viaInfoTemplate.setContent("<div>" + via + "</div>");
+
+            var _phInfoTemplate = new InfoTemplate();
+            _phInfoTemplate.setTitle("<b>Prop. Horizontal Inf.</b>");
+            _phInfoTemplate.setContent("<div>" + ph + "</div>");
+
+            predios = new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/catastro/predios_cba/MapServer", { visible: true });
+            predios.setInfoTemplates({
+              0: { infoTemplate: _predioInfoTemplate}
+            });
+            manzanas =  new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/catastro/manzanasdb/MapServer", {visible: true});
+            manzanas.setInfoTemplates({
+              0: { infoTemplate: _manzanaInfoTemplate}
+            });
+            vias =    new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/planificacion/vias/MapServer", {visible: true});
+            vias.setInfoTemplates({
+                  0: { infoTemplate: _viaInfoTemplate}
+                });
+
+            usosuelo =  new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/planificacion/usoSuelodb/MapServer", {visible: true, opacity:0.5});
+            limites =   new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/planificacion/limites/MapServer", {visible: true});
+            //centros =   new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/centros/centros/MapServer", {visible: true});
+            //var _infoTemplate = new InfoTemplate("${NUMERO_INM}", "${*}");
+            fiscalizacion = new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/recaudaciones/fiscalizacion/MapServer", {visible: false})
+            fiscalizacion.setInfoTemplates({
+              0: { infoTemplate: new InfoTemplate("Gest. Adeudada - ${NUMERO_INM}", "${*}")},
+              1: { infoTemplate: new InfoTemplate("Mont. Tot. Deuda - ${NUMERO_INM}", "${*}")},
+              2: { infoTemplate: new InfoTemplate("Duplicados - ${NUMERO_INM}", "${*}")}
+            });
+
+            fiscalizacion1 = new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/recaudaciones/fiscalizacion1/MapServer", {visible: false})
+            fiscalizacion1.setInfoTemplates({
+              0: { infoTemplate: new InfoTemplate("Dif. en Const. - ${NUMERO_INM}", "${*}")},
+              1: { infoTemplate: new InfoTemplate("Duplicados - ${NUMERO_INM}", "${*}")},
+            });
+
+            imagen64 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen1964_500/MapServer", {visible: false});
+            imagen94 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/CBA_1994_500/MapServer", {visible: false});
+            imagen00 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2000_500/MapServer", {visible: false});
+            imagen04 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen_2004500/MapServer", {visible: false});
+            imagen07 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2007_500/MapServer", {visible: false});
+            imagen08 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/CBA_2008_500/MapServer", {visible: false});
+            imagen09 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2009_500/MapServer", {visible: false});
+            imagen10 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2010_500/MapServer", {visible: false});
+            imagen11 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2011_500/MapServer", {visible: false});
+            imagen12 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2012_500/MapServer", {visible: false});
+            imagen13 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2013_500/MapServer", {visible: false});
+            imagen14 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2014_500/MapServer", {visible: false});
+            imagen15 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2015_500/MapServer", {visible: false});
+            imagen16 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/CBBA_2016_500/MapServer", {visible: false});
+            imagen17 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2017_500/MapServer", {visible: false});
+            imagen18 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services//imagenes/CBA_2018500/MapServer", {visible: false});
+            imagen19 = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/imagenes/imagen2019_500/MapServer", {visible: false});
+            sectoriales = new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/planificacion/sectorialesUsoSuelo/MapServer", {visible: true});
+            pendiente = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/catastro/pendientecat_500/MapServer", {visible: false});
+            mds = new ArcGISTiledMapServiceLayer(urlBase + "/arcgis/rest/services/catastro/MDS_500/MapServer", {visible: false});
+
+      prediosRegularizacion = new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/catastro/prediosRegularizacion/MapServer", {visible: false});
+
+            restitucion2015  = new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/catastro/restitucion2015/MapServer", {visible: false, opacity:0.5});
+            restitucion2015.setInfoTemplates({
+                  2: { infoTemplate: _constResInfoTemplate},
+                  4: { infoTemplate: _predioResInfoTemplate}
+                });
+
+            recaudaciones = new ArcGISDynamicMapServiceLayer(urlBase + "/arcgis/rest/services/recaudaciones/phsInmuebles/MapServer", { visible: true });
+            recaudaciones.setInfoTemplates({
+                1: { infoTemplate: _phInfoTemplate},
+                2: { infoTemplate: _predioInfoTemplate},
+                7: { infoTemplate: _viaInfoTemplate},
+                11: { infoTemplate: _manzanaInfoTemplate}
+            });
+
+
+
+        map.on('layers-add-result', function(evt)
+        {
+          try
+          {
+            toc = new TOC(
+            {
+             map: map,
+                layerInfos:
+                  [
+                  {layer: fiscalizacion, title: "Fiscalizacion", collapsed: true},
+                  {layer: fiscalizacion1, title: "Fiscalizacion 1", collapsed: true},
+                  {layer: predios, title: "Predios", collapsed: true},
+                    {layer: prediosRegularizacion, title: "Predios Regularización", collapsed: true},
+                  {layer: restitucion2015, title: "Restitución 2015", collapsed: true, slider: true},
+                  {layer: manzanas, title: "Manzanas", collapsed: true},
+                  {layer: vias, title: "Vias", collapsed: true},
+                  {layer: sectoriales, title: "Sectoriales Uso Suelo", collapsed: true},
+                  {layer: limites, title: "Limites", collapsed: true},
+                  {layer: usosuelo, title: "Uso de Suelo", collapsed: true, slider: true},
+                  {layer: pendiente, title: "Pendiente Catastro", collapsed: true},
+                  {layer: mds, title: "Mapa de sombras MDS", collapsed: true},
+                  {layer: imagen19, title: "Imagen 2019", collapsed: true},
+                  {layer: imagen18, title: "Imagen 2018", collapsed: true},
+                  {layer: imagen17, title: "Imagen 2017", collapsed: true},
+                  {layer: imagen16, title: "Imagen 2016", collapsed: true},
+                  {layer: imagen15, title: "Imagen 2015", collapsed: true},
+                  {layer: imagen14, title: "Imagen 2014", collapsed: true},
+                  {layer: imagen13, title: "Imagen 2013", collapsed: true},
+                  {layer: imagen12, title: "Imagen 2012", collapsed: true},
+                  {layer: imagen11, title: "Imagen 2011", collapsed: true},
+                  {layer: imagen10, title: "Imagen 2010", collapsed: true},
+                  {layer: imagen09, title: "Imagen 2009", collapsed: true},
+                  {layer: imagen08, title: "Imagen 2008", collapsed: true},
+                  {layer: imagen07, title: "Imagen 2007", collapsed: true},
+                  {layer: imagen04, title: "Imagen 2004", collapsed: true},
+                  {layer: imagen00, title: "Imagen 2000", collapsed: true},
+                  {layer: imagen94, title: "Imagen 1994", collapsed: true},
+                  {layer: imagen64, title: "Imagen 1964", collapsed: true}]
+            }, 'tocDiv');
+
+                      toc.startup();
+
+                      toc.on('load', function()
+                      {
+                        if (console)
+                            console.log('TOC loaded');
+                      });
+
+            toc.on('toc-node-checked', function(evt)
+              {
+                if (console)
+                {
+                console.log("TOCNodeChecked, rootLayer:" + (evt.rootLayer?evt.rootLayer.id:'NULL') + ", serviceLayer:" + (evt.serviceLayer?evt.serviceLayer.id:'NULL') + " Checked:" + evt.checked);
+                if (evt.checked && evt.rootLayer && evt.serviceLayer)
+                {
+                  // evt.rootLayer.setVisibleLayers([evt.serviceLayer.id])
+                }
+              }
+            });
+                  } catch (e) { alert(e); }
+              });
+
+                map.addLayers([imagen64, imagen94, imagen00, imagen04, imagen07, imagen08, imagen09, imagen10, imagen11, imagen12, imagen13, imagen14, imagen15, imagen16, imagen17, imagen18, imagen19, sectoriales, pendiente, mds, usosuelo, vias, restitucion2015, manzanas, predios, limites, prediosRegularizacion, fiscalizacion, fiscalizacion1]);
+
+                map.on("load", function() {
+          //after map loads, connect to listen to mouse move & drag events
+                map.on("mouse-move", showCoordinates);
+                map.on("mouse-drag", showCoordinates);
+            });
+
+
+        var snapManager = map.enableSnapping({
+                snapKey: has("mac") ? keys.META : keys.CTRL
+            });
+
+            var layerInfos = [{
+                layer: new FeatureLayer(urlBase + "/arcgis/rest/services/catastro/predios_cba/MapServer/0")
+            }];
+            snapManager.setLayerInfos(layerInfos);
+
+            var measurement = new Measurement({
+                map: map,
+                defaultAreaUnit: Units.SQUARE_METERS,
+                defaultLengthUnit: Units.METERS
+            }, dom.byId("measurementDiv"));
+
+
+            measurement.on('measure', function(evt)
+        {
+          //map.setInfoWindowOnClick(false);
+          map.infoWindow.hide();
+          if (console)
+                      console.log('comenzamos a medir');
+        });
+
+        measurement.on('measure-start', function(evt)
+        {
+          //map.setInfoWindowOnClick(false);
+          map.infoWindow.hide();
+          if (console)
+                      console.log('comenzamos a medir');
+        });
+
+            measurement.startup();
+
+                var s = new Search(
+        {
+          enableButtonMode: true, //this enables the search widget to display as a single button
+          enableLabel: true,
+          enableInfoWindow: true,
+          showInfoWindowOnSelect: true,
+          map: map
+        }, "search");
+
+        var sources = [];
+
+        sources.push(
+        {
+          featureLayer: new FeatureLayer(urlBase + "/arcgis/rest/services/planificacion/vias/MapServer/0"),
+          searchFields: ["Nombre_V"],
+          displayField: "Nombre_V",
+          name: "Vias",
+          placeholder: "NOMBRE DE VIA",
+          infoTemplate: _viaInfoTemplate,
+          enableSuggestions: true,
+          minCharacters: 0,
+          outFields: ["*"]
+        });
+
+        sources.push(
+        {
+            featureLayer: new FeatureLayer(urlBase + "/arcgis/rest/services/catastro/predios_cba/MapServer/0"),
+          searchFields: ["CodCat"],
+          displayField: "CodCat",
+          placeholder: "00SSMMMPPP",
+          suggestionTemplate: "00-${Sbdist_Nro}-${Nro_manzan}-${Nro_predio}",
+          name: "Predios",
+          placeholder: "Código Catastral",
+          infoTemplate: _predioInfoTemplate,
+          enableSuggestions: true,
+          minCharacters: 7,
+          outFields: ["*"]
+        });
+
+        sources.push(
+        {
+            featureLayer: new FeatureLayer(urlBase + "/arcgis/rest/services/catastro/predios_cba/MapServer/0"),
+          searchFields: ["NoInmueble"],
+          displayField: "NoInmueble",
+          placeholder: "No. Inmueble",
+          suggestionTemplate: "",
+          name: "Ruat",
+          placeholder: "No. Inmueble",
+          infoTemplate: _predioInfoTemplate,
+          enableSuggestions: true,
+          minCharacters: 4,
+          outFields: ["*"]
+        });
+
+        sources.push(
+        {
+          featureLayer: new FeatureLayer(urlBase + "/arcgis/rest/services/catastro/manzanasdb/MapServer/0"),
+          searchFields: ["Manzanas"],
+          displayField: "Manzanas",
+          suggestionTemplate: "${SubDistrit} - ${Nombre_SD}: ${Manzanas}",
+          name: "Manzanas",
+          placeholder: "Nro. Manzana",
+          infoTemplate: _manzanaInfoTemplate,
+          enableSuggestions: true,
+          minCharacters: 3,
+          outFields: ["*"],
+          maxResults: 37,
+          maxSuggestions: 37
+        });
+
+        s.set("sources", sources);
+        s.startup();
+
+        function showCoordinates(evt) {
+                //the map is in web mercator but display coordinates in geographic (lat, long)
+              var mp = webMercatorUtils.webMercatorToGeographic(evt.mapPoint);
+                //display mouse coordinates
+                dom.byId("info").innerHTML = mp.x.toFixed(3) + ", " + mp.y.toFixed(3);
+            }
+            });
+    </script>
+</head>
+<body class="claro">
+    <div id="search"></div>
+    <div id="content" data-dojo-type="dijit/layout/BorderContainer" design="headline" gutters="true" style="width: 100%; height: 100%; margin: 0;">
+        <div data-dojo-type="dijit/layout/ContentPane" id="leftPane" region="left" splitter="true">
+            <div id="tocDiv">
+            </div>
+        </div>
+        <div id="map" data-dojo-type="dijit/layout/ContentPane" region="center">
+            <div id="HomeButton"></div>
+            <div style="position:absolute; right:20px; bottom:10px; z-Index:999;">
+                <div id="titlePane" data-dojo-type="dijit/TitlePane" data-dojo-props="title:'Measurement', closable:false">
+                    <div id="measurementDiv"></div>
+                    <span style="font-size:smaller;padding:5px 5px;">Presione <b>CTRL</b> para habilitar snapping.</span>
+                </div>
+            </div>
+            <span id="info" style="position:absolute; left:25px; bottom:55px; color:#000; z-index:50; font-family: arial; font-size: 12px;"></span>
+            <span id="reference" style="position:absolute; left:25px; bottom:6px; color:#000; z-index:50; font-family: arial; font-size: 10px;">GRS 80 - MARGEN SIRGAS(WGS 84)</span>
+        </div>
+    </div>
+</body>
+</html>
+

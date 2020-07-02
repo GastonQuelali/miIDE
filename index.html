@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no"/>
+    <title>Simple Map</title>
+    <link rel="stylesheet" type="text/css" href="https://js.arcgis.com/3.32/dijit/themes/claro/claro.css">
+    <link rel="stylesheet" type="text/css" href="https://js.arcgis.com/3.32/esri/css/esri.css">
+    <link rel="stylesheet" type="text/css" href="src/agsjs/css/agsjs.css" />
+    <style>
+      html, body {
+          height: 98%;
+          width: 100%;
+          margin: 0;
+          padding: 0px;
+          font-family: helvetica, arial, sans-serif;
+          font-size: 90%;
+      }
+
+      #map {
+          height: 100%;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+      }
+
+      #search {
+          display: block;
+          position: absolute;
+          z-index: 2;
+          top: 25px;
+          right: 25px;
+      }
+
+      #leftPane {
+          width: 280px;
+          overflow: auto;
+      }
+
+      #HomeButton {
+          position: absolute;
+          top: 95px;
+          left: 20px;
+          z-index: 50;
+      }
+
+      #titlePane {
+          width: 280px;
+      }
+      /*#widgetContainer {position: absolute; top: 25px; left: 380px; padding: 10px; background: rgba(102,102,102,0.80); border-radius: 5px; -webkit-border-radius: 5px; z-index: 3;}*/
+      .agsjsTOCOutOfScale { /*display: none;*/
+      }
+  </style>
+    <script type="text/javascript">
+      var dojoConfig =
+      {       
+        paths: {
+          agsjs: location.pathname.replace(/\/[^/]+$/, '') + 'src/agsjs'
+          }
+      };
+</script>
+    <script src="https://js.arcgis.com/3.32/"></script>
+    <script>
+        var map;
+
+        require([                    
+          "agsjs/dijit/TOC",  
+          "esri/Color",  
+          "esri/graphic",                    
+          "esri/map", 
+          "esri/dijit/HomeButton",
+          "esri/dijit/Popup",
+          "esri/dijit/PopupTemplate", 
+          "esri/dijit/Scalebar",
+          "esri/dijit/Search",         
+          "esri/geometry/Extent",
+          "esri/layers/ArcGISDynamicMapServiceLayer",    
+          "esri/layers/LabelLayer",      
+          "esri/layers/FeatureLayer", 
+          "esri/symbols/Font",                   
+          "esri/symbols/SimpleFillSymbol", 
+          "esri/symbols/SimpleLineSymbol",
+          "esri/symbols/TextSymbol", 
+          "esri/renderers/SimpleRenderer",        
+          "dojo/dom-class",
+          "dojo/dom-construct",
+          "dojo/parser",
+          "dijit/layout/BorderContainer",
+          "dijit/layout/ContentPane",
+          "dijit/TitlePane",
+          "dojo/domReady!"
+        ], 
+        function(TOC, Color, Graphic, Map, HomeButton, Popup, PopupTemplate, Scalebar, Search, Extent, ArcGISDynamicMapServiceLayer, LabelLayer, FeatureLayer, Font, SimpleFillSymbol, SimpleLineSymbol, TextSymbol, SimpleRenderer, domClass, domConstruct, parser) {
+
+          parser.parse(); // note djConfig.parseOnLoad = false;
+
+          var fill = new SimpleFillSymbol("solid", null, new Color("#A4CE67"));
+          var popup = new Popup({
+            fillSymbol: fill,
+            titleInBody: false
+          }, domConstruct.create("div"));
+          //Add the dark theme which is customized further in the <style> tag at the top of this page
+          domClass.add(popup.domNode, "dark");
+
+
+          map = new Map("map", {
+            logo: false,
+            slider: true,
+            nav: true,
+            extent: new Extent({xmin:777438.3545463828,ymin:8056816.629960473, xmax:829786.9368636743, ymax:8091804.4413363235, spatialReference:{wkid:32719}}),
+            infoWindow: popup
+          });
+
+          /*
+          */
+          var templatePredios = new PopupTemplate({
+            title: "PREDIO {nro_predio}",            
+            fieldInfos: [
+              {fieldName: "codcat", visible: true, label: "Código Catastral"}, 
+              {fieldName: "sbdistrito", visible: true, label: "Nombre Subdistrito" }, 
+              {fieldName: "sbdist_nro", visible: true, label: "Subdistrito" }, 
+              {fieldName: "nro_manzan", visible: true, label: "Nro. Manzana" }, 
+              {fieldName: "nro_predio", visible: true, label: "Nro. Predio" }, 
+              {fieldName: "noinmueble", visible: true, label: "Nro. Inmueble" }, 
+              {fieldName: "comuna", visible: true, label: "Comuna" }, 
+              {fieldName: "ztributari", visible: true, label: "Zona Tributaria" }, 
+              {fieldName: "st_area(shape)", visible: true, label: "Area", format: { "digitSeparator": true, "places": 2 } }, 
+              {fieldName: "st_length(shape)", visible: true, label: "Perimetro", format: { "digitSeparator": true, "places": 2 } }
+            ]
+          });
+
+          var templateManzanas = new PopupTemplate({
+            title: "MANZANAS {manzanas}",
+            fieldInfos: [
+              {fieldName: "manzanas", visible: true, label: "Nro. Manzana" }, 
+              { fieldName: "distrito", visible: true, label: "Distrito" }, 
+              { fieldName: "subdistrit", visible: true, label: "Subdistrito" }, 
+              { fieldName: "nombre_sd", visible: true, label: "Nombre Subdistrito" }, 
+              { fieldName: "comuna", visible: true, label: "Comuna" }, 
+              { fieldName: "st_area(shape)", visible: true, label: "Area", format: { digitSeparator: true, places: 2 } }, 
+              { fieldName: "st_length(shape)", visible: true, label: "Perimetro", format: { digitSeparator: true, places: 2 }}
+            ]        
+          });
+
+          var templateVias = new PopupTemplate({
+            title: "VIAS",
+            fieldInfos: [
+              {fieldName: "tipo", visible: true, label: "Tipo" }, 
+              {fieldName: "nombre", visible: true, label: "Nombre" }, 
+              {fieldName: "st_length(shape)", visible: true, label: "Perimetro", format: { digitSeparator: true, places: 2}}
+            ]
+          });
+
+            var predios = new ArcGISDynamicMapServiceLayer("https://cat-sist-03:6443/arcgis/rest/services/Catastro/Predios/MapServer", {visible: true});
+            predios.setInfoTemplates({
+              0: { infoTemplate: templatePredios}
+            });
+            var manzanas = new ArcGISDynamicMapServiceLayer("https://cat-sist-03:6443/arcgis/rest/services/Catastro/Manzanas/MapServer", {visible: true});
+            manzanas.setInfoTemplates({
+              0: { infoTemplate: templateManzanas}
+            });
+            var vias = new ArcGISDynamicMapServiceLayer("https://cat-sist-03:6443/arcgis/rest/services/Planificacion/Vias/MapServer", {visible: true});
+            vias.setInfoTemplates({
+              0: { infoTemplate: templateVias}
+            });
+
+            var base = new ArcGISDynamicMapServiceLayer("https://cat-sist-03:6443/arcgis/rest/services/Base/MapServer", {visible: true});
+
+            var imagen19 = new ArcGISDynamicMapServiceLayer("https://cat-sist-03:6443/arcgis/rest/services/Catastro/imagen_2019/MapServer", {visible: true});
+
+
+            //FEATURES LAYERS DE BUSQUEDA
+            var featurePredios = new FeatureLayer("https://cat-sist-03:6443/arcgis/rest/services/Catastro/Predios/MapServer/0", {id:"Predios", outFields: ["*"]});
+
+            var labelField = "nro_predio";
+            var statesColor = new Color("#666");
+            var statesLabel = new TextSymbol().setColor(statesColor);
+            statesLabel.font.setSize("12pt");
+            statesLabel.font.setFamily("arial");
+            var statesLabelRenderer = new SimpleRenderer(statesLabel);
+
+            var labels = new LabelLayer({ id: "labels" });
+            labels.addFeatureLayer(featurePredios, statesLabelRenderer, "{" + labelField + "}");
+
+            map.on('layers-add-result', function(evt)
+            {
+              try
+              {
+                toc = new TOC(
+                {
+                  map: map,
+                  layerInfos:
+                    [                       
+                      {layer: featurePredios, title: "Numeros de predio", collapsed: true},
+                      //{layer: labels, title: "Labels", collapsed: true},
+                      {layer: predios, title: "Predios", collapsed: true},
+                      {layer: manzanas, title: "Nro. Manzana", collapsed: true},
+                      {layer: vias, title: "Vias", collapsed: true},                      
+                      {layer: base, title: "Base", collapsed: true, slider: true},                      
+                      {layer: imagen19, title: "Imagen 2019", collapsed: false},
+                    ]
+                }, 'tocDiv');
+
+                toc.startup();
+              } catch (e) { alert(e); }
+            });
+
+            map.addLayers([imagen19, base, predios, manzanas, vias, featurePredios, labels]);
+
+
+            var home = new HomeButton({map: map}, "HomeButton");
+            home.startup();
+
+            var scalebar = new Scalebar({
+              map: map,
+              scalebarStyle: "ruler",
+              attachTo: "bottom-left",
+              scalebarUnit: "metric"
+            });
+
+            var s = new Search(
+            {
+              enableButtonMode: true, //this enables the search widget to display as a single button
+              enableLabel: true,
+              enableInfoWindow: true,
+              showInfoWindowOnSelect: false,
+              expanded: true,
+              map: map
+            }, "search");
+
+            var sources = [];
+            //VIAS
+            sources.push(
+            {
+              featureLayer: new FeatureLayer("https://cat-sist-03:6443/arcgis/rest/services/Planificacion/Vias/MapServer/0"),
+              searchFields: ["nombre_v"],
+              displayField: "nombre_v",
+              name: "Vias",
+              placeholder: "NOMBRE DE VIA",
+              //highlightSymbol: new PictureMarkerSymbol("https://js.arcgis.com/3.24/esri/dijit/Search/images/search-pointer.png", 36, 36).setOffset(9, 18),
+              highlightSymbol: new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([255, 0, 0]), 4),
+              infoTemplate: templateVias,
+              enableSuggestions: true,
+              minCharacters: 0,
+              outFields: ["*"]
+            });
+            //MANZANAS
+            sources.push(
+            {
+              featureLayer: new FeatureLayer("https://cat-sist-03:6443/arcgis/rest/services/Catastro/Manzanas/MapServer/0"),
+              searchFields: ["manzanas"],
+              displayField: "manzanas",
+              suggestionTemplate: "${subdistrit} - ${nombre_sd}: ${manzanas}",
+              name: "Manzanas",
+              placeholder: "Nro. Manzana",
+              labelSymbol: new TextSymbol().setColor(new Color([255, 0, 0, 1.0])).setFont(new Font("200%", Font.STYLE_NORMAL, Font.VARIANT_NORMAL, Font.WEIGHT_BOLD, "Arial")).setOffset(0, 0).setAlign(TextSymbol.ALIGN_MIDDLE),
+              //highlightSymbol: new PictureMarkerSymbol("https://js.arcgis.com/3.24/esri/dijit/Search/images/search-pointer.png", 36, 36).setOffset(9, 18),
+              highlightSymbol: new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([255, 0, 0]), 3), new Color([255, 0, 0, 0.0])),
+              infoTemplate: templateManzanas,
+              enableSuggestions: true,
+              minCharacters: 3,
+              outFields: ["*"],
+              maxResults: 37,
+                    maxSuggestions: 37
+            });
+            //PREDIOS
+            sources.push(
+            {
+              //featureLayer: new FeatureLayer(urlBase + "/arcgis/rest/services/catastro/predioscbba/MapServer/0"),
+              featureLayer: featurePredios,
+              searchFields: ["codcat"],
+              displayField: "codcat", //"CodCat",
+              placeholder: "00SSMMMPPP",
+              suggestionTemplate: "${sbdist_nro}-${nro_manzan}-${nro_predio}",
+              name: "Predios",
+              placeholder: "Código Catastral",
+              labelSymbol: new TextSymbol().setColor(new Color([56, 56, 56, 1.0])).setFont(new Font("14px", Font.STYLE_NORMAL, Font.VARIANT_NORMAL, Font.WEIGHT_BOLD, "Courier")).setOffset(-10, -25).setAlign(TextSymbol.ALIGN_MIDDLE),
+              highlightSymbol: new SimpleFillSymbol(SimpleFillSymbol.STYLE_BACKWARD_DIAGONAL, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([0, 0, 0]), 3), new Color([255, 255, 0, 0.0])),
+              infoTemplate: templatePredios,
+              enableSuggestions: true,
+              minCharacters: 5,
+              outFields: ["*"]
+            });
+
+            s.on("search-results", searchResults);
+
+            function searchResults(e)
+            {
+              map.graphics.clear();
+            }
+
+            s.set("sources", sources);
+            s.startup();
+
+        });
+    </script>
+  </head>
+
+  <body class="claro">    
+    <div id="search"></div>
+    <div id="content" data-dojo-type="dijit/layout/BorderContainer" design="headline" gutters="true" style="width: 100%; height: 100%; margin: 0;">
+      <div data-dojo-type="dijit/layout/ContentPane" id="leftPane" region="left" splitter="true">
+          <div id="tocDiv"></div>
+      </div>
+      <div id="map" data-dojo-type="dijit/layout/ContentPane" region="center">
+          <div id="HomeButton"></div>
+          <div style="position:absolute; right:20px; bottom:10px; z-Index:999;">
+              <div id="titlePane" data-dojo-type="dijit/TitlePane" data-dojo-props="title:'Measurement', closable:false">
+                  <div id="measurementDiv"></div>
+                  <span style="font-size:smaller;padding:5px 5px;">Presione <b>CTRL</b> para habilitar snapping.</span>
+              </div>
+          </div>
+      </div>
+    </div>
+  </body>
+</html>

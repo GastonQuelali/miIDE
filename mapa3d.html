@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <title>Custom Basemap - 4.15</title>
+
+    <style>
+      html,
+      body,
+      #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+      }
+    </style>
+
+    <link
+      href="https://js.arcgis.com/4.15/esri/themes/light/main.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://js.arcgis.com/4.15/"></script>
+
+    <script>
+      require([
+        "esri/layers/TileLayer",
+        "esri/Map",
+        "esri/Basemap",
+        "esri/geometry/SpatialReference",
+        "esri/widgets/BasemapToggle",
+        "esri/views/SceneView"
+      ], function(TileLayer, Map, Basemap, SpatialReference, BasemapToggle, SceneView) {
+        // Create a WebTileLayer with a third-party cached service
+        var imagen19Layer = new TileLayer({ url: "http://186.121.246.219:6080/arcgis/rest/services/imagenes/imagen2019_500/MapServer", 
+                                            visible: true, 
+                                            title: "Imagen 2019",
+                                            spatialReference : new SpatialReference({wkid: 32719}),
+                                            copyright: "HOLA MUNDO"});      
+      var baseMap19 = new Basemap({
+        baseLayers: [imagen19Layer],
+        title: "2019",
+        id: "2019",
+        thumbnailUrl: "http://186.121.246.219:6080/arcgis/rest/services/imagenes/imagen2019_500/MapServer/info/thumbnail"
+      });
+
+
+      const viewSpatialReference = new SpatialReference({wkid: 32719});
+
+        var map = new Map({
+          basemap: "satellite",
+          ground: "world-elevation",
+          layers: [imagen19Layer],
+          spatialReference: viewSpatialReference
+        });
+
+        var initCamera = {
+          heading: 124.7,
+          tilt: 82.9,
+          position: {
+            latitude: 40.713906,
+            longitude: -111.848111,
+            z: 1990
+          }
+        };
+
+        var viewOptions = {
+            container: "viewDiv",
+            map: map/*,
+            viewingMode: "local"*/
+        };
+        console.log("map", map);
+        console.log("imagen19layer", imagen19Layer);
+        console.log("basemap19", baseMap19);
+
+        var view = new SceneView(viewOptions);
+        console.log("view", view);
+
+        /*view.when(function() {
+          // Add a basemap toggle widget to toggle between basemaps
+          var toggle = new BasemapToggle({
+            titleVisible: true,
+            view: view,
+            nextBasemap: baseMap19
+          });
+
+          // Add widget to the top right corner of the view
+          view.ui.add(toggle, "top-right");
+        });*/
+      });
+    </script>
+  </head>
+
+  <body>
+    <div id="viewDiv"></div>
+  </body>
+</html>

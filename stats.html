@@ -1,0 +1,88 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>ArcGIS API for JavaScript Hello World App</title>
+  <style>
+    html,
+    body,
+    #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
+  
+  <link rel="stylesheet" href="https://js.arcgis.com/4.15/esri/themes/dark/main.css">  
+  <script src="https://js.arcgis.com/4.15/"></script>
+
+  <script>
+    require([
+      "esri/geometry/Extent",
+      "esri/Map",
+      "esri/layers/MapImageLayer",
+      "esri/views/MapView"
+    ], function (Extent, Map, MapImageLayer, MapView) {
+
+      var usoSueloLayer = new MapImageLayer({
+        url: "http://186.121.246.219:6080/arcgis/rest/services/planificacion/usoSuelodb/MapServer",
+        visible: true,
+        title: "Uso de Suelo",
+        opacity: 0.5,
+        sublayers: [
+          {
+            id: 0, visible: true, title: "Uso de suelo",
+            sublayers: [{
+              id: 2,
+              //opacity: 0.5,
+              visible: true,
+              title: "Uso Fuera del Area Urbana"/*, opacity: 0.5*/
+            },
+            { id: 1, visible: true, title: "Uso de suelo"/*, opacity: 0.5*/ }]
+          }]
+      });
+
+      var limitesLayer = new MapImageLayer({
+        url: "http://186.121.246.219:6080/arcgis/rest/services/planificacion/limites/MapServer",
+        visible: true,
+        sublayers: [{ id: 4, visible: true, title: "Limites de Cercado" },
+        { id: 3, visible: true, title: "Subdistritos" },
+        { id: 2, visible: true, title: "Comunas" },
+        { id: 1, visible: true, title: "Distritos" },
+        { id: 0, visible: true, title: "Area Urbana" }],
+        title: "Limites"
+      });
+
+      var map = new Map();
+
+      var view = new MapView({
+        container: "viewDiv",
+        map: map       
+      });
+
+      map.layers.addMany([usoSueloLayer, limitesLayer]);
+
+      view.when(function () {
+        view.extent = new Extent({
+          xmin: 792623.8393543878,
+          ymin: 8059312.670740076,
+          xmax: 810149.874406458,
+          ymax: 8090334.5994506,
+          spatialReference: {
+            wkid: 32719
+          }
+        });     
+      });
+
+    });
+  </script>
+</head>
+
+<body>
+  <div id="viewDiv"></div>
+</body>
+
+</html>

@@ -1,0 +1,754 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Mapa Base 4</title>
+  <style>
+    html, body, #viewDiv {padding: 0; margin: 0; height: 100%; width: 100%;}
+    .esri-coordinate-conversion__conversions-view { margin: 0 0 0 0 !important;}
+    .esri-attribution {line-height: 25px !important;}
+
+    #queryDiv, #resultDiv { min-width: 300px; font-size: 14px; padding: 10px; display: none; overflow-y: auto; overflow-x: hidden;}
+    #messageDiv {display: none; padding-top: 10px;}
+    .esri-home {left: 100px; top: 15px; right: auto; bottom: auto; width: 40px; height: 40px; padding: 0px; margin: auto; z-index: auto;}
+    .esri-compass {left: 150px; top: 15px; right: auto; bottom: auto; width: 40px; height: 40px; padding: 0px; margin: auto; z-index: auto;}
+    .esri-fullscreen {left: 200px; top: 15px; right: auto; bottom: auto; width: 40px; height: 40px; padding: 0px; margin: auto; z-index: auto;}
+  </style>
+
+  <!--<link rel="stylesheet" href="https://js.arcgis.com/4.13/esri/css/main.css">-->
+  <link rel="stylesheet" href="https://js.arcgis.com/4.13/esri/themes/dark/main.css" />
+  <script src="https://js.arcgis.com/4.13/"></script>
+
+  <script>
+    require([
+      "esri/Map",
+      "esri/Basemap",      
+      "esri/views/MapView",
+      "esri/Graphic",
+      "esri/geometry/Extent",
+      "esri/geometry/Point",
+      "esri/layers/FeatureLayer",
+      "esri/layers/GroupLayer",      
+      "esri/layers/MapImageLayer",
+      "esri/layers/TileLayer",
+      "esri/webmap/Bookmark",
+      "esri/tasks/QueryTask",
+      "esri/tasks/support/Query",      
+      "esri/widgets/BasemapGallery",
+      "esri/widgets/Bookmarks",
+      "esri/widgets/Compass",
+      "esri/widgets/CoordinateConversion",
+      "esri/widgets/Expand",
+      "esri/widgets/Fullscreen",
+      "esri/widgets/Home",
+      "esri/widgets/LayerList",
+      "esri/widgets/Legend",
+      "esri/widgets/Search"      
+    ], function (Map, Basemap, MapView, Graphic, Extent, Point, FeatureLayer, GroupLayer, MapImageLayer, TileLayer, Bookmark, QueryTask, Query, BasemapGallery, Bookmarks, Compass, CoordinateConversion, Expand, Fullscreen, Home, LayerList, Legend, Search) {
+
+      document.getElementById("btnNroTramite").addEventListener("click", fBuscarNroTramite);
+      document.getElementById("btnLimpiar").addEventListener("click", fLimpiar);
+
+      var templatePredios = {//title: "Congressional District {DISTRICTID} </br>{NAME},{PARTY}",
+        title: "PREDIOS",
+        content: [{
+          type: "fields",
+          fieldInfos: [{ fieldName: "CodCat", label: "Código Catastral" }, { fieldName: "Sbdistrito", label: "Nombre Subdistrito" }, { fieldName: "Sbdist_Nro", label: "Subdistrito" }, { fieldName: "Nro_manzan", label: "Nro. Manzana" }, { fieldName: "Nro_predio", label: "Nro. Predio" }, { fieldName: "NoInmueble", label: "Nro. Inmueble" }, { fieldName: "comuna", label: "Comuna" }, { fieldName: "ZTributari", label: "Zona Tributaria" },
+          { fieldName: "Shape.STArea()", label: "Area", format: { digitSeparator: true, places: 2 } },
+          { fieldName: "Shape.STLength()", label: "Perimetro", format: { digitSeparator: true, places: 2 } }]
+        }]//,
+        //overwriteActions: true
+      };
+
+      var templateManzanas = {//title: "<a href={Web_Page} target='_blank'> {Name}</a>, ({Party}-{State}) ",
+        title: "MANZANAS",
+        content: [{
+          type: "fields",
+          fieldInfos: [{ fieldName: "Manzanas", label: "Nro. Manzana" }, { fieldName: "Distrito", label: "Distrito" }, { fieldName: "SubDistrit", label: "Subdistrito" }, { fieldName: "Nombre_SD", label: "Nombre Subdistrito" }, { fieldName: "comuna", label: "Comuna" }, { fieldName: "Shape.STArea()", label: "Area", format: { digitSeparator: true, places: 2 } }, { fieldName: "Shape.STLength()", label: "Perimetro", format: { digitSeparator: true, places: 2 } }]
+        }]//,
+        //overwriteActions: true
+      };
+
+      var templateVias = {// autocasts as new PopupTemplate() //title: "<a href={Web_Page} target='_blank'> {Name}</a>, ({Party}-{State}) ",
+        title: "VIAS",
+        content: [{
+          type: "fields",
+          fieldInfos: [{ fieldName: "Tipo", label: "Tipo" }, { fieldName: "Nombre", label: "Nombre" }, { fieldName: "Shape_Leng", label: "Perimetro", format: { digitSeparator: true, places: 2 } }]
+        }]//,
+        //overwriteActions: true
+      };
+
+      var templateRed0 = {// autocasts as new PopupTemplate() //title: "<a href={Web_Page} target='_blank'> {Name}</a>, ({Party}-{State}) ",
+        title: "RED0",
+        content: [{
+          type: "fields",
+          fieldInfos: [ { fieldName: "Este", label: "X"}, 
+                        { fieldName: "Norte", label: "Y"}, 
+                        { fieldName: "COTA", label: "Z"}
+                      ]
+        }]        
+      };
+
+      var templateRed1 = {// autocasts as new PopupTemplate() //title: "<a href={Web_Page} target='_blank'> {Name}</a>, ({Party}-{State}) ",
+        title: "RED1",
+        content: [{
+          type: "fields",
+          fieldInfos: [ { fieldName: "X", label: "X"}, 
+                        { fieldName: "Y", label: "Y"}, 
+                        { fieldName: "Z", label: "Z"}
+                      ]
+        }]        
+      };
+
+      var templateRed2 = {// autocasts as new PopupTemplate() //title: "<a href={Web_Page} target='_blank'> {Name}</a>, ({Party}-{State}) ",
+        title: "RED2",
+        content: [{
+          type: "fields",
+          fieldInfos: [ { fieldName: "Name", label: "Nombre"}, 
+                        { fieldName: "Elevacion", label: "Elevacion"}                        
+                      ]
+        }]        
+      };
+
+      var prediosLayer = new MapImageLayer({
+        url: "http://192.168.105.219:6080/arcgis/rest/services/catastro/predios_cba/MapServer",
+        visible: true,
+        title: "Predios",
+        sublayers: [
+          { id: 0, visible: true, title: "Predio", popupTemplate: templatePredios }]
+      });
+
+      var manzanasLayer = new MapImageLayer({
+        url: "http://192.168.105.219:6080/arcgis/rest/services/catastro/manzanasdb/MapServer",
+        visible: true,
+        title: "Manzanas",
+        sublayers: [
+          { id: 0, visible: true, title: "Manzanas", popupTemplate: templateManzanas }]
+      });
+
+      var viasLayer = new MapImageLayer({
+        url: "http://192.168.105.219:6080/arcgis/rest/services/planificacion/vias/MapServer",
+        visible: true,
+        title: "Vias",
+        sublayers: [
+          { id: 0, visible: true, title: "Vias", popupTemplate: templateVias }]
+      });
+    
+      var usoSueloLayer = new MapImageLayer({
+        url: "http://192.168.105.219:6080/arcgis/rest/services/planificacion/usoSuelodb/MapServer",
+        visible: true,
+        title: "Uso de Suelo",
+        opacity: 0.5,
+        sublayers: [
+          {
+            id: 0, visible: true, title: "Uso de suelo",
+            sublayers: [{ id: 2, 
+                          //opacity: 0.5,
+                          visible: true, 
+                          title: "Uso Fuera del Area Urbana"/*, opacity: 0.5*/},
+                        { id: 1, visible: true, title: "Uso de suelo"/*, opacity: 0.5*/}]
+          }]
+      });
+
+      var limitesLayer = new MapImageLayer({
+        url: "http://192.168.105.219:6080/arcgis/rest/services/planificacion/limites/MapServer",
+        visible: true,        
+        sublayers: [{id: 4, visible: true, title: "Limites de Cercado"}, 
+                    {id: 3, visible: true, title: "Subdistritos"}, 
+                    {id: 2, visible: true, title: "Comunas"}, 
+                    {id: 1, visible: true, title: "Distritos"}, 
+                    {id: 0, visible: true, title: "Area Urbana"}],
+        title: "Limites"
+      });
+      var redLayer = new MapImageLayer({
+        url: "http://192.168.105.219:6080/arcgis/rest/services/catastro/redGeodesica/MapServer",
+        visible: false,        
+        sublayers: [{id: 2, visible: true, title: "RED NIVELACION", popupTemplate: templateRed2}, 
+                    {id: 1, visible: true, title: "Red IGM Pares Ajustados", popupTemplate: templateRed1}, 
+                    {id: 0, visible: true, title: "PAF SNA", popupTemplate: templateRed0}],
+        title: "Red Geodesica"
+      });
+
+      var sCopyright = 'GRS 80 - MARGEN SIRGAS(WGS 84)';
+
+      var imagen64Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen1964_500/MapServer", visible: true, title: "Imagen 1964", copyright: sCopyright});
+      var baseMap64 = new Basemap({
+        baseLayers: [imagen64Layer],
+        title: "1964",
+        id: "1964",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen1964_500/MapServer/info/thumbnail"
+      });
+      var imagen94Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/CBA_1994_500/MapServer", visible: true, title: "Imagen 1994", copyright: sCopyright});
+      var baseMap94 = new Basemap({
+        baseLayers: [imagen94Layer],
+        title: "1994",
+        id: "1994",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/CBA_1994_500/MapServer/info/thumbnail"
+      });
+      var imagen00Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2000_500/MapServer", visible: true, title: "Imagen 2000", copyright: sCopyright});
+      var baseMap00 = new Basemap({
+        baseLayers: [imagen00Layer],
+        title: "2000",
+        id: "2000",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2000_500/MapServer/info/thumbnail"
+      });
+      var imagen04Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen_2004500/MapServer", visible: true, title: "Imagen 2004", copyright: sCopyright});
+      var baseMap04 = new Basemap({
+        baseLayers: [imagen04Layer],
+        title: "2004",
+        id: "2004",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen_2004500/MapServer/info/thumbnail"
+      });
+      var imagen07Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2007_500/MapServer", visible: true, title: "Imagen 2007", copyright: sCopyright});
+      var baseMap07 = new Basemap({
+        baseLayers: [imagen07Layer],
+        title: "2007",
+        id: "2007",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2007_500/MapServer/info/thumbnail"
+      });
+      var imagen08Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/CBA_2008_500/MapServer", visible: true, title: "Imagen 2008", copyright: sCopyright});
+      var baseMap08 = new Basemap({
+        baseLayers: [imagen08Layer],
+        title: "2008",
+        id: "2008",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/CBA_2008_500/MapServer/info/thumbnail"
+      });
+      var imagen09Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2009_500/MapServer", visible: true, title: "Imagen 2009", copyright: sCopyright});
+      var baseMap09 = new Basemap({
+        baseLayers: [imagen09Layer],
+        title: "2009",
+        id: "2009",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2009_500/MapServer/info/thumbnail"
+      });
+      var imagen10Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2010_500/MapServer", visible: true, title: "Imagen 2010", copyright: sCopyright});
+      var baseMap10 = new Basemap({
+        baseLayers: [imagen10Layer],
+        title: "2010",
+        id: "2010",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2010_500/MapServer/info/thumbnail"
+      });
+      var imagen11Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2011_500/MapServer", visible: true, title: "Imagen 2011", copyright: sCopyright});
+      var baseMap11 = new Basemap({
+        baseLayers: [imagen11Layer],
+        title: "2011",
+        id: "2011",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2011_500/MapServer/info/thumbnail"
+      });
+      var imagen12Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2012_500/MapServer", visible: true, title: "Imagen 2012", copyright: sCopyright});
+      var baseMap12 = new Basemap({
+        baseLayers: [imagen12Layer],
+        title: "2012",
+        id: "2012",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2012_500/MapServer/info/thumbnail"
+      });
+      var imagen13Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2013_500/MapServer", visible: true, title: "Imagen 2013", copyright: sCopyright });
+      var baseMap13 = new Basemap({
+        baseLayers: [imagen13Layer],
+        title: "2013",
+        id: "2013",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2013_500/MapServer/info/thumbnail"
+      });
+      var imagen14Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2014_500/MapServer", visible: true, title: "Imagen 2014", copyright: sCopyright});
+      var baseMap14 = new Basemap({
+        baseLayers: [imagen14Layer],
+        title: "2014",
+        id: "2014",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2014_500/MapServer/info/thumbnail"
+      });
+      var imagen15Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2015_500/MapServer", visible: true, title: "Imagen 2015", copyright: sCopyright });
+      var baseMap15 = new Basemap({
+        baseLayers: [imagen15Layer],
+        title: "2015",
+        id: "2015",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2015_500/MapServer/info/thumbnail"
+      });
+      var imagen16Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/CBBA_2016_500/MapServer", visible: true, title: "Imagen 2016", copyright: sCopyright});
+      var baseMap16 = new Basemap({
+        baseLayers: [imagen16Layer],
+        title: "2016",
+        id: "2016",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/CBBA_2016_500/MapServer/info/thumbnail"
+      });
+      var imagen17Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2017_500/MapServer", visible: true, title: "Imagen 2017", copyright: sCopyright});
+      var baseMap17 = new Basemap({
+        baseLayers: [imagen17Layer],
+        title: "2017",
+        id: "2017",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2017_500/MapServer/info/thumbnail"
+      });
+      var imagen18Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services//imagenes/CBA_2018500/MapServer", visible: true, title: "Imagen 2018", copyright: sCopyright});
+      var baseMap18 = new Basemap({
+        baseLayers: [imagen18Layer],
+        title: "2018",
+        id: "2018",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services//imagenes/CBA_2018500/MapServer/info/thumbnail"
+      });
+      var imagen19Layer = new TileLayer({ url: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2019_500/MapServer", visible: true, title: "Imagen 2019", copyright: sCopyright});      
+      var baseMap19 = new Basemap({
+        baseLayers: [imagen19Layer],
+        title: "2019",
+        id: "2019",
+        thumbnailUrl: "http://192.168.105.219:6080/arcgis/rest/services/imagenes/imagen2019_500/MapServer/info/thumbnail"
+      });
+      
+      var sectorialesLayer = new MapImageLayer({
+        url: "http://192.168.105.219:6080/arcgis/rest/services/planificacion/sectorialesUsoSuelo/MapServer",
+        visible: true,
+        opacity: 0.5,
+        sublayers: [{id: 1, visible: true, title: "Sectoriales"}, 
+                    {id: 0, visible: true, title: "Sectoriales Uso de suelo"}],
+        title: "Sectoriales"
+      });
+
+      var restitucion2015Layer = new MapImageLayer({
+        url: "http://192.168.105.219:6080/arcgis/rest/services/catastro/restitucion2015/MapServer",
+        visible: false,
+        opacity: 0.5,       
+        sublayers: [{id: 4, visible: true, title: "Predios"}, 
+                    {id: 3, visible: true, title: "En Construccion"},
+                    {id: 2, visible: true, title: "Construcciones"},
+                    {id: 1, visible: true, title: "Const Ruinas"},
+                    {id: 0, visible: true, title: "Const Cobertizos"}],
+        title: "Restitucion 2015"
+      });
+
+      var registrosCatastralesLayer = new MapImageLayer({
+        url: "http://192.168.105.219:6080/arcgis/rest/services/catastro/RegistrosCatastrales/MapServer",
+        visible: false,        
+        sublayers: [{
+            id: 0, visible: true, title: "Registro Catastrales",
+            sublayers: [{ id: 1, visible: true, title: "Consolidados"}]
+          }],
+        title: "Registros Catastrales"
+      });
+
+      var matricesLayer = new MapImageLayer({
+        url: "http://192.168.105.219:6080/arcgis/rest/services/catastro/matrices_predios/MapServer",
+        visible: true,  
+        opacity: 0.5,      
+        sublayers: [{id: 0, visible: true, title: "Matrices Predios"}],
+        title: "Matrices"
+      });
+
+      var viasLayer = new MapImageLayer({
+        url: "http://192.168.105.219:6080/arcgis/rest/services/planificacion/vias/MapServer",
+        visible: true,
+        title: "Vias",
+        sublayers: [
+          { id: 0, visible: true, title: "Vias", popupTemplate: templateVias }]
+      });     
+
+      var map = new Map({
+        //basemap: "dark-gray",
+        //layers: [imagen64Layer, imagen94Layer, imagen00Layer, imagen04Layer, imagen07Layer, imagen08Layer, imagen09Layer, imagen10Layer, imagen11Layer, imagen12Layer, imagen13Layer, imagen14Layer, imagen15Layer, imagen16Layer, imagen17Layer, imagen18Layer, usoSueloLayer, manzanasLayer, prediosLayer, viasLayer]//17
+        //basemap: baseMap,
+        layers: [/*imagenesGroupLayer,*/ sectorialesLayer, usoSueloLayer, viasLayer, restitucion2015Layer, registrosCatastralesLayer, prediosLayer, manzanasLayer, limitesLayer, redLayer]
+        //layers: [usoSueloLayer]
+      });
+
+      var view = new MapView({
+        container: "viewDiv",
+        map: map,
+        //zoom: 5,
+        //center: [801386.8568804229, 8074823.635095338],        
+        popup: {
+          dockEnabled: true,
+          dockOptions: {
+              buttonEnabled: true,
+              breakpoint: false,
+              position: "top-center"
+            }
+        }
+      });
+
+      view.when(function() {
+        var prediosLayerUrl = "http://192.168.105.219:6080/arcgis/rest/services/catastro/predios_cba/MapServer/0";
+        var queryTask = new QueryTask({url: prediosLayerUrl});
+
+        var query = new Query();
+        query.returnGeometry = true;
+        query.outFields = ["*"];
+        query.where = "CodCat IN ('26367001000000000', '22395001000000000','16576021000000000', '10019005000000000','04131023000000000','32121001000000000','17067001000000000')";
+
+        queryTask.execute(query).then(function(results){      
+          //console.log("RESULTADOS",results);
+          var textSymbol = {
+            type: "text", 
+            color: "#7A003C",
+            text: "\ue61d", 
+            font: {                
+              size: 36,
+              family: "CalciteWebCoreIcons"
+            }
+          };            
+
+          var pointGraphic;
+
+          results.features.forEach(function(f) {
+            console.log("RESULTADOS",f);
+            pointGraphic1 = new Graphic({
+              geometry: f.geometry.centroid,
+                  //symbol: textSymbol
+                  symbol: {
+                  type: "picture-marker",
+                  url: "https://developers.arcgis.com/labs/images/bluepin.png",
+                  width: "20px",
+                  height: "36px"
+                  }
+                });
+
+                view.graphics.add(pointGraphic1);        
+              });
+          });
+      });
+
+      view.on("click", function(event) {
+        console.log("the view event", event);
+        console.log("the view", view);
+      });
+
+      view.when(function(){
+        view.extent = new Extent({
+            xmin: 792623.8393543878,
+            ymin: 8059312.670740076,
+            xmax: 810149.874406458,
+            ymax: 8090334.5994506,
+            spatialReference: {
+                wkid: 32719
+            }
+        });        
+      });
+
+      var applicationDiv = document.getElementById("applicationDiv");
+
+      view.ui.add(new Fullscreen({view: view, element: applicationDiv}), "manual");
+
+      view.ui.add(new Home({view: view}), "manual");
+
+      view.when(function () {
+        var featureLayerPredios = new FeatureLayer({
+          url: "http://192.168.105.219:6080/arcgis/rest/services/catastro/predios_cba/MapServer/0",
+          outFields: ["*"],
+          popupTemplate: templatePredios          
+        });
+
+        var featureLayerManzanas = new FeatureLayer({
+          url: "http://192.168.105.219:6080/arcgis/rest/services/catastro/manzanasdb/MapServer/0",
+          outFields: ["*"],
+          popupTemplate: templateManzanas
+        });
+
+        var featureLayerVias = new FeatureLayer({
+          url: "http://192.168.105.219:6080/arcgis/rest/services/planificacion/vias/MapServer/0",
+          outFields: ["*"],
+          popupTemplate: templateVias
+        });
+
+        var searchWidget = new Search({
+          view: view,
+          //resultGraphicEnabled: true,
+          //locationEnabled: true,
+          autoNavigate: false, //para que no vaya al punto          
+          includeDefaultSources: false,
+          allPlaceholder: "Codigo Catastral o Nro. Manzana",
+          sources: [
+            {
+              layer: featureLayerPredios,
+              searchFields: ["CodCat"],
+              suggestionTemplate: "{Sbdist_Nro}-{Nro_manzan}-{Nro_predio}",
+              exactMatch: false,
+              displayField: "CodCat",
+              outFields: ["*"],
+              placeholder: "00SSMMMPPP",
+              minSuggestCharacters: 5,
+              zoomScale: 500000,
+              name: "Predios"
+            },
+            {
+              layer: featureLayerManzanas,
+              searchFields: ["Manzanas"],
+              suggestionTemplate: "{SubDistrit} - {Nombre_SD}: {Manzanas}",
+              exactMatch: false,
+              displayField: "Manzanas",
+              outFields: ["*"],
+              placeholder: "Nro. Manzana",
+              minSuggestCharacters: 3,              
+              name: "Manzanas"
+            },
+            {
+              layer: featureLayerVias,
+              searchFields: ["Nombre_V"],
+              //suggestionTemplate: "{SubDistrit} - {Nombre_SD}: {Manzanas}",
+              exactMatch: false,
+              displayField: "Nombre_V",
+              outFields: ["*"],
+              placeholder: "NOMBRE DE VIA",
+              name: "Vias",
+            }
+          ]
+        });
+
+        searchWidget.on("select-result", function(event) {
+          console.log("The selected search result: ", event);
+          console.log("The selected search result view: ", view);
+          console.log("The selected search result feature: ", event.result.feature.geometry.extent);          
+          view.goTo(event.result.feature.geometry.extent);
+        });        
+
+        const eSearch = new Expand({
+          view: view,
+          content: searchWidget,
+          expanded: true
+        });
+
+        view.ui.add(eSearch, "top-right");          
+
+        const queryDiv = document.getElementById("queryDiv");
+        const eQuery = new Expand({
+          view: view,
+          content: queryDiv,
+          expandIconClass: "esri-icon-search",
+          expanded: false
+        });
+
+        view.ui.add(eQuery, "top-left");
+        queryDiv.style.display = "block"; 
+
+        //view.ui.add([eSearch, eQuery], "top-left");
+
+      });
+
+      view.when(function(){
+        const coordinate = new Expand({
+          content: new CoordinateConversion({view: view}),
+          view: view,
+          expanded: false
+        });        
+
+        view.ui.add(coordinate, "top-right");
+      });
+
+      function fBuscarNroTramite() {                
+        var vNroTramite = document.getElementById("txtNroTramite").value;
+
+        fetch('http://186.121.246.218:8833/STCService.svc/BUSQUEDATRAMITENRO/' + vNroTramite).then((respuesta) => {
+          return respuesta.json();
+          }).then((respuesta) => {
+            messageDiv.style.display = "block"
+            document.getElementById("messageDiv").innerHTML = respuesta.MENSAJE;
+
+            if (respuesta.ERROR ==  "0") {
+              resultDiv.style.display = "block"; //1 No existe el número de trámite vigente - 0 Existe número de trámite.
+              document.getElementById("tdComuna").innerHTML = respuesta.COMUNA;
+              document.getElementById("tdFechaIngreso").innerHTML = respuesta.FECHAINGRESO;
+              document.getElementById("tdFechaSalida").innerHTML = respuesta.FECHASALIDA;
+              document.getElementById("tdUnidadDestino").innerHTML = respuesta.UNIDADDESTNO;
+              document.getElementById("tdUnidadOrigen").innerHTML = respuesta.UNIDADORIGEN;
+              document.getElementById("tdMotivo").innerHTML = respuesta.MOTIVO;                                                    
+            }
+            else {
+              resultDiv.style.display = "none";
+            }
+          })
+        }
+
+        function fLimpiar() {                
+          resultDiv.style.display = "none";
+          messageDiv.style.display = "none";
+          document.getElementById("txtNroTramite").value = "";
+        }            
+
+      view.when(function() {
+        var basemapGallery = new BasemapGallery({
+          view: view,
+          //activeBasemap: baseMap19,
+          source: [baseMap19, baseMap18, baseMap17, baseMap16, baseMap15, baseMap14, baseMap13, baseMap12, baseMap11, baseMap10, baseMap09, baseMap08, baseMap07, baseMap04, baseMap00, baseMap94, baseMap64]
+        });
+
+        const bmExpand = new Expand({
+          view: view,
+          content: basemapGallery,
+          expanded: false,
+          autoCollapse:true,
+          //iconNumber: 5,
+          expandTooltip: "Galeria de Imagenes",
+          collapseTooltip: "",          
+          mode: "drawer"//"drawer", "auto"
+        });
+        view.ui.add(bmExpand, "top-left");
+      });
+
+      view.when(function() {
+        const legend = new Expand({
+          content:  new Legend({
+                      view: view,
+                      style : "classic",
+                      layerInfos: [
+                        {layer: sectorialesLayer/*, title: "NY Educational Attainment"*/},
+                        {layer: usoSueloLayer/*, title: "NY Educational Attainment"*/},
+                        {layer: viasLayer/*, title: "NY Educational Attainment"*/},
+                        {layer: restitucion2015Layer/*, title: "NY Educational Attainment"*/},
+                        {layer: registrosCatastralesLayer/*, title: "NY Educational Attainment"*/},
+                        {layer: prediosLayer/*, title: "NY Educational Attainment"*/},                        
+                        {layer: manzanasLayer/*, title: "NY Educational Attainment"*/},
+                        {layer: limitesLayer/*, title: "NY Educational Attainment"*/},
+                        {layer: redLayer/*, title: "NY Educational Attainment"*/}
+                        /*, {layer: demLayer}, {layer: pendienteLayer}, {layer:relieveLayer}*/]
+                      }),                    
+          view: view,
+          expanded: true
+        });
+      
+        view.ui.add(legend, "bottom-right");
+      });
+
+      view.when(function() {
+        var layerList = new LayerList({
+          view: view//,         
+        });
+        const llExpand = new Expand({
+          view: view,
+          content: layerList,
+          expanded: false
+        });
+        view.ui.add(llExpand, "top-left");
+      });
+
+      view.when(function() {
+        const bookmarks = new Bookmarks({
+          view: view,
+          //container: document.createElement("div"),
+          bookmarks: [
+            new Bookmark({
+              name: "Subalcaldia ADELA ZAMUDIO",
+              extent: {
+                spatialReference: {wkid: 32719},
+                xmin: 802389.98, ymin: 8075990.779444444, xmax: 802687.7399999998, ymax: 8076520.130555554
+              }
+            }),
+            new Bookmark({
+              name: "Subalcaldia ALEJO CALTAYUD",
+              extent: {
+                spatialReference: {wkid: 32719},
+                xmin: 802402.4838281905, ymin: 8070146.2266882425, xmax: 803169.237727541, ymax: 8070562.617799354
+              }
+            }),
+            new Bookmark({
+              name: "Subalcaldia ITOCTA",
+              extent: {
+                spatialReference: {wkid: 32719},
+                xmin: 803525.7171763032, ymin: 8068416.228074224, xmax: 803832.538777911, ymax: 8068961.688699304
+              }
+            }),
+            new Bookmark({
+              name: "Subalcaldia MOLLE",
+              extent: {
+                spatialReference: {wkid: 32719},                
+                xmin: 799035.3449999996, ymin: 8074155.612222221, xmax: 799213.0250000003, ymax: 8074471.487777777
+              }
+            }),                        
+            new Bookmark({
+              name: "Subalcaldia TUNARI",
+              extent: {
+                spatialReference: {wkid: 32719},
+                xmin: 800438.3049999997, ymin: 8078341.520555554, xmax: 800648.5049999999, ymax: 8078715.209444443
+              }
+            }),
+            new Bookmark({
+              name: "Subalcaldia VALLE HERMOSO",
+              extent: {
+                spatialReference: {wkid: 32719}, 
+                xmin: 804623.1382101013, ymin: 8071680.87498743, xmax: 804837.7901097003, ymax: 8072062.478364495
+              }
+            }),
+            new Bookmark({
+              name: "Casa de Coordinacion TUNARI",
+              extent: {
+                spatialReference: {wkid: 32719},
+                xmin: 805099.1849999997, ymin: 8076522.4416666655, xmax: 805393.545, ymax: 8077045.748333332
+              }
+            })            
+          ]
+        });       
+
+        bookmarks.on("select-bookmark", function(event) {      
+          console.log("the view", view);
+          console.log("the bookmark", bookmarks);
+
+        });        
+
+        const eBookmarks = new Expand({
+          view: view,
+          content: bookmarks,
+          expanded: false, 
+          id: "esri-dagc-bookmarks",
+          declaredClass: "123456"
+        });
+        view.ui.add(eBookmarks, "top-left");
+      });    
+       
+      /********************************
+      * Create a compass widget object.
+      *********************************/
+      var compassWidget = new Compass({view: view});
+      // Add the Compass widget to the top left corner of the view
+      view.ui.add(compassWidget, "manual");
+    });
+  </script>
+</head>
+
+<body>
+  <div id="applicationDiv">
+    <div id="viewDiv"></div>
+  <div id="queryDiv" class="esri-widget">
+        <!--<b>Consulta su TRAMITE</b><br />-->
+        
+        <div style="padding-top: 10px;">
+            <label class="esri-label" for="txtNroTramite">Nro. Tramite: 
+                <input class="esri-input" id="txtNroTramite" type="number" value="" placeholder="2020012345" size="10"/>
+            </label>
+        </div>   
+        <div style="padding-top: 10px;">
+            <button class="esri-button" id="btnNroTramite" type="button">Buscar</button>        
+        </div>
+        <div id="messageDiv"></div>
+
+        <div id="resultDiv" class="esri-widget">
+            <table class="esri-widget__table" summary="List of attributes and values">
+                <tbody>
+                    <tr>
+                        <th class="esri-feature__field-header">Comuna</th>
+                        <td id="tdComuna" class="esri-feature__field-data"></td>
+                    </tr>
+                    <tr>
+                        <th class="esri-feature__field-header">Fecha Ingreso</th>
+                        <td id="tdFechaIngreso" class="esri-feature__field-data"></td>
+                    </tr>
+                    <tr>
+                        <th class="esri-feature__field-header">Fecha Salida</th>
+                        <td id="tdFechaSalida" class="esri-feature__field-data"></td>
+                    </tr>
+                    <tr>
+                        <th class="esri-feature__field-header">Unidad Destino</th>
+                        <td id="tdUnidadDestino" class="esri-feature__field-data"></td>
+                    </tr>
+                    <tr>
+                        <th class="esri-feature__field-header">Unidad Origen</th>
+                        <td id="tdUnidadOrigen" class="esri-feature__field-data"></td>
+                    </tr>
+                    <tr>
+                        <th class="esri-feature__field-header">Motivo</th>
+                        <td id="tdMotivo" class="esri-feature__field-data"></td>
+                    </tr>                
+                </tbody>
+            </table>
+            <div style="padding-top: 10px;">
+                <button class="esri-button" id="btnLimpiar" type="button">Limpiar</button>        
+            </div>
+        </div>
+    </div>    
+  </div>
+</body>
+
+</html>
