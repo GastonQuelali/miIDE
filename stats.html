@@ -13,10 +13,20 @@
       height: 100%;
       width: 100%;
     }
+
+    #chartPanel {
+      background: #fff;
+      font: "Avenir Next W00";
+      line-height: 1.5em;
+      overflow: auto;
+      padding: 10px;
+      width: 580px;
+      height: 300px;
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
-  
-  <link rel="stylesheet" href="https://js.arcgis.com/4.15/esri/themes/dark/main.css">  
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.15/esri/themes/dark/main.css">
   <script src="https://js.arcgis.com/4.15/"></script>
 
   <script>
@@ -24,9 +34,11 @@
       "esri/geometry/Extent",
       "esri/Map",
       "esri/layers/MapImageLayer",
-      "esri/views/MapView"
-    ], function (Extent, Map, MapImageLayer, MapView) {
-
+      "esri/views/MapView",
+      "esri/widgets/Expand",
+    ], function (Extent, Map, MapImageLayer, MapView, Expand) {
+      //Global vars
+      let chartExpand;
       var usoSueloLayer = new MapImageLayer({
         url: "http://186.121.246.219:6080/arcgis/rest/services/planificacion/usoSuelodb/MapServer",
         visible: true,
@@ -60,7 +72,7 @@
 
       var view = new MapView({
         container: "viewDiv",
-        map: map       
+        map: map
       });
 
       map.layers.addMany([usoSueloLayer, limitesLayer]);
@@ -74,15 +86,53 @@
           spatialReference: {
             wkid: 32719
           }
-        });     
-      });
+        });
 
+        // Display the chart in an Expand widget
+        chartExpand = new Expand({
+          expandIconClass: "esri-icon-chart",
+          expandTooltip: "Population pyramid chart",
+          expanded: true,
+          view: view,
+          content: document.getElementById("chartPanel")
+        });
+
+        var ctx = document.getElementById('chart').getContext('2d');
+        var chart = new Chart(ctx, {
+          // The type of chart we want to create
+          type: 'line',
+
+          // The data for our dataset
+          data: {
+            labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
+            datasets: [{
+              label: 'My First dataset',
+              backgroundColor: 'rgb(255, 99, 132)',
+              borderColor: 'rgb(255, 99, 132)',
+              data: [0, 10, 5, 2, 20, 30, 45]
+            },
+            {
+              label: 'My Second dataset',
+              backgroundColor: 'rgb(10, 50, 200)',
+              borderColor: 'rgb(10, 50, 200)',
+              data: [30, 6, 81, 22, 9, 3, 15]
+            }
+            ]
+          },
+          // Configuration options go here
+          options: {}
+        });
+
+        // Add our components to the UI
+        view.ui.add(chartExpand, "bottom-left");
+      });
     });
   </script>
 </head>
 
 <body>
   <div id="viewDiv"></div>
+  <div id="chartPanel"><canvas id="chart" class="chart"></canvas></div>
 </body>
 
 </html>
